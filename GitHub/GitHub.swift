@@ -27,11 +27,11 @@ protocol GitHubEndpoint: APIEndpoint {
     var path: String { get }
 }
 
-private let GitHubURL = NSURL(string: "https://api.github.com/")!
+private let GitHubURL = URL(string: "https://api.github.com/")!
 
 extension GitHubEndpoint {
-    var URL: NSURL {
-        return NSURL(string: path, relativeToURL: GitHubURL)!
+    var url: URL {
+        return URL(string: path, relativeTo: GitHubURL)!
     }
     var headers: Parameters? {
         return [
@@ -47,8 +47,8 @@ struct SearchRepositories: GitHubEndpoint {
     var path = "search/repositories"
     var query: Parameters? {
         return [
-            "q"    : searchQuery,
-            "page" : String(page),
+            "q": searchQuery,
+            "page": String(page),
         ]
     }
     typealias ResponseType = SearchResult<Repository>
@@ -65,9 +65,9 @@ struct SearchRepositories: GitHubEndpoint {
  Parse ISO 8601 format date string
  - SeeAlso: https://developer.github.com/v3/#schema
  */
-private let dateFormatter: NSDateFormatter = {
-    let formatter = NSDateFormatter()
-    formatter.calendar = NSCalendar(calendarIdentifier: NSCalendarIdentifierGregorian)
+private let dateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.calendar = NSCalendar(calendarIdentifier: NSCalendar.Identifier.gregorian) as Calendar?
     formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
     return formatter
 }()
@@ -76,13 +76,17 @@ struct FormattedDateConverter: JSONValueConverter {
     typealias FromType = String
     typealias ToType = NSDate
 
-    private let dateFormatter: NSDateFormatter
+    let dateFormatter: DateFormatter
 
-    func convert(key key: String, value: FromType) throws -> DateConverter.ToType {
-        guard let date = dateFormatter.dateFromString(value) else {
-            throw JSONDecodeError.UnexpectedValue(key: key, value: value, message: "Invalid date format for '\(dateFormatter.dateFormat)'")
+    func convert(key: String, value: FromType) throws -> DateConverter.ToType {
+        guard let date = dateFormatter.date(from: value) else {
+            throw JSONDecodeError.UnexpectedValue(
+                key: key,
+                value: value,
+                message: "Invalid date format for '\(String(describing: dateFormatter.dateFormat))'"
+            )
         }
-        return date
+        return date as DateConverter.ToType
     }
 }
 
@@ -96,9 +100,9 @@ struct SearchResult<ItemType: JSONDecodable>: JSONDecodable {
     let items: [ItemType]
 
     init(JSON: JSONObject) throws {
-        self.totalCount = try JSON.get("total_count")
-        self.incompleteResults = try JSON.get("incomplete_results")
-        self.items = try JSON.get("items")
+        self.totalCount = try JSON.get(key: "total_count")
+        self.incompleteResults = try JSON.get(key: "incomplete_results")
+        self.items = try JSON.get(key: "items")
     }
 }
 
@@ -131,28 +135,28 @@ struct Repository: JSONDecodable {
     let owner: User
 
     init(JSON: JSONObject) throws {
-        self.id = try JSON.get("id")
-        self.name = try JSON.get("name")
-        self.fullName = try JSON.get("full_name")
-        self.isPrivate = try JSON.get("private")
-        self.HTMLURL = try JSON.get("html_url")
-        self.description = try JSON.get("description")
-        self.fork = try JSON.get("fork")
-        self.URL = try JSON.get("url")
-        self.createdAt = try JSON.get("created_at", converter: FormattedDateConverter(dateFormatter: dateFormatter))
-        self.updatedAt = try JSON.get("updated_at", converter: FormattedDateConverter(dateFormatter: dateFormatter))
-        self.pushedAt = try JSON.get("pushed_at", converter: FormattedDateConverter(dateFormatter: dateFormatter))
-        self.homepage = try JSON.get("homepage")
-        self.size = try JSON.get("size")
-        self.stargazersCount = try JSON.get("stargazers_count")
-        self.watchersCount = try JSON.get("watchers_count")
-        self.language = try JSON.get("language")
-        self.forksCount = try JSON.get("forks_count")
-        self.openIssuesCount = try JSON.get("open_issues_count")
-        self.masterBranch = try JSON.get("master_branch")
-        self.defaultBranch = try JSON.get("default_branch")
-        self.score = try JSON.get("score")
-        self.owner = try JSON.get("owner")
+        self.id = try JSON.get(key: "id")
+        self.name = try JSON.get(key: "name")
+        self.fullName = try JSON.get(key: "full_name")
+        self.isPrivate = try JSON.get(key: "private")
+        self.HTMLURL = try JSON.get(key: "html_url")
+        self.description = try JSON.get(key: "description")
+        self.fork = try JSON.get(key: "fork")
+        self.URL = try JSON.get(key: "url")
+        self.createdAt = try JSON.get(key: "created_at", converter: FormattedDateConverter(dateFormatter: dateFormatter))
+        self.updatedAt = try JSON.get(key: "updated_at", converter: FormattedDateConverter(dateFormatter: dateFormatter))
+        self.pushedAt = try JSON.get(key: "pushed_at", converter: FormattedDateConverter(dateFormatter: dateFormatter))
+        self.homepage = try JSON.get(key: "homepage")
+        self.size = try JSON.get(key: "size")
+        self.stargazersCount = try JSON.get(key: "stargazers_count")
+        self.watchersCount = try JSON.get(key: "watchers_count")
+        self.language = try JSON.get(key: "language")
+        self.forksCount = try JSON.get(key: "forks_count")
+        self.openIssuesCount = try JSON.get(key: "open_issues_count")
+        self.masterBranch = try JSON.get(key: "master_branch")
+        self.defaultBranch = try JSON.get(key: "default_branch")
+        self.score = try JSON.get(key: "score")
+        self.owner = try JSON.get(key: "owner")
     }
 }
 
@@ -170,12 +174,12 @@ struct User: JSONDecodable {
     let type: String
 
     init(JSON: JSONObject) throws {
-        self.login = try JSON.get("login")
-        self.id = try JSON.get("id")
-        self.avatarURL = try JSON.get("avatar_url")
-        self.gravatarID = try JSON.get("gravatar_id")
-        self.URL = try JSON.get("url")
-        self.receivedEventsURL = try JSON.get("received_events_url")
-        self.type = try JSON.get("type")
+        self.login = try JSON.get(key: "login")
+        self.id = try JSON.get(key: "id")
+        self.avatarURL = try JSON.get(key: "avatar_url")
+        self.gravatarID = try JSON.get(key: "gravatar_id")
+        self.URL = try JSON.get(key: "url")
+        self.receivedEventsURL = try JSON.get(key: "received_events_url")
+        self.type = try JSON.get(key: "type")
     }
 }

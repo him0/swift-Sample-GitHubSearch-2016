@@ -39,7 +39,7 @@ protocol JSONDecodable {
  - UnexpectedType:       値が期待する型ではない
  - UnexpectedValue:      値が期待するようなものではない
  */
-enum JSONDecodeError: ErrorType, CustomDebugStringConvertible {
+enum JSONDecodeError: Error, CustomDebugStringConvertible {
     case MissingRequiredKey(String)
     case UnexpectedType(key: String, expected: Any.Type, actual: Any.Type)
     case UnexpectedValue(key: String, value: Any, message: String?)
@@ -63,7 +63,7 @@ protocol JSONValueConverter {
     associatedtype FromType
     associatedtype ToType
 
-    func convert(key key: String, value: FromType) throws -> ToType
+    func convert(key: String, value: FromType) throws -> ToType
 }
 
 /**
@@ -73,7 +73,7 @@ struct DefaultConverter<T>: JSONValueConverter {
     typealias FromType = T
     typealias ToType = T
 
-    func convert(key key: String, value: FromType) -> DefaultConverter.ToType {
+    func convert(key: String, value: FromType) -> DefaultConverter.ToType {
         return value
     }
 }
@@ -85,7 +85,7 @@ struct ObjectConverter<T: JSONDecodable>: JSONValueConverter {
     typealias FromType = [String: AnyObject]
     typealias ToType = T
 
-    func convert(key key: String, value: FromType) throws -> ObjectConverter.ToType {
+    func convert(key: String, value: FromType) throws -> ObjectConverter.ToType {
         return try T(JSON: JSONObject(JSON: value))
     }
 }
@@ -97,7 +97,7 @@ struct ArrayConverter<T: JSONDecodable>: JSONValueConverter {
     typealias FromType = [[String: AnyObject]]
     typealias ToType = [T]
 
-    func convert(key key: String, value: FromType) throws -> ArrayConverter.ToType {
+    func convert(key: String, value: FromType) throws -> ArrayConverter.ToType {
         return try value.map(JSONObject.init).map(T.init)
     }
 }
@@ -138,7 +138,7 @@ struct JSONObject {
             throw JSONDecodeError.MissingRequiredKey(key)
         }
         guard let typedValue = value as? Converter.FromType else {
-            throw JSONDecodeError.UnexpectedType(key: key, expected: Converter.FromType.self, actual: value.dynamicType)
+            throw JSONDecodeError.UnexpectedType(key: key, expected: Converter.FromType.self, actual: type(of: value))
         }
         return try converter.convert(key: key, value: typedValue)
     }
@@ -151,41 +151,41 @@ struct JSONObject {
             return nil
         }
         guard let typedValue = value as? Converter.FromType else {
-            throw JSONDecodeError.UnexpectedType(key: key, expected: Converter.FromType.self, actual: value.dynamicType)
+            throw JSONDecodeError.UnexpectedType(key: key, expected: Converter.FromType.self, actual: type(of: value))
         }
         return try converter.convert(key: key, value: typedValue)
     }
 
     func get<T: JSONPrimitive>(key: String) throws -> T {
-        return try get(key, converter: DefaultConverter())
+        return try get(key: key, converter: DefaultConverter())
     }
 
     func get<T: JSONPrimitive>(key: String) throws -> T? {
-        return try get(key, converter: DefaultConverter())
+        return try get(key: key, converter: DefaultConverter())
     }
 
-    func get<T: JSONConvertible where T == T.ConverterType.ToType>(key: String) throws -> T {
-        return try get(key, converter: T.converter)
+    func get<T: JSONConvertible>(key: String) throws -> T where T == T.ConverterType.ToType {
+        return try get(key: key, converter: T.converter)
     }
 
-    func get<T: JSONConvertible where T == T.ConverterType.ToType>(key: String) throws -> T? {
-        return try get(key, converter: T.converter)
+    func get<T: JSONConvertible>(key: String) throws -> T? where T == T.ConverterType.ToType {
+        return try get(key: key, converter: T.converter)
     }
 
     func get<T: JSONDecodable>(key: String) throws -> T {
-        return try get(key, converter: ObjectConverter())
+        return try get(key: key, converter: ObjectConverter())
     }
 
     func get<T: JSONDecodable>(key: String) throws -> T? {
-        return try get(key, converter: ObjectConverter())
+        return try get(key: key, converter: ObjectConverter())
     }
 
     func get<T: JSONDecodable>(key: String) throws -> [T] {
-        return try get(key, converter: ArrayConverter())
+        return try get(key: key, converter: ArrayConverter())
     }
 
     func get<T: JSONDecodable>(key: String) throws -> [T]? {
-        return try get(key, converter: ArrayConverter())
+        return try get(key: key, converter: ArrayConverter())
     }
     
 }
@@ -213,7 +213,7 @@ struct URLConverter: JSONValueConverter {
     typealias FromType = String
     typealias ToType = NSURL
 
-    func convert(key key: String, value: FromType) throws -> URLConverter.ToType {
+    func convert(key: String, value: FromType) throws -> URLConverter.ToType {
         guard let URL = NSURL(string: value) else {
             throw JSONDecodeError.UnexpectedValue(key: key, value: value, message: "Invalid URL")
         }
@@ -222,10 +222,10 @@ struct URLConverter: JSONValueConverter {
 }
 
 struct DateConverter: JSONValueConverter {
-    typealias FromType = NSTimeInterval
+    typealias FromType = TimeInterval
     typealias ToType = NSDate
 
-    func convert(key key: String, value: FromType) -> DateConverter.ToType {
+    func convert(key: String, value: FromType) -> DateConverter.ToType {
         return NSDate(timeIntervalSince1970: value)
     }
 }

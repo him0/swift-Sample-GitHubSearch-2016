@@ -23,7 +23,7 @@
 
 import Foundation
 
-enum APIError: ErrorType {
+enum APIError: Error {
     case EmptyBody
     case UnexpectedResponseType
 }
@@ -40,7 +40,7 @@ enum HTTPMethod: String {
 }
 
 protocol APIEndpoint {
-    var URL: NSURL { get }
+    var url: URL { get }
     var method: HTTPMethod { get }
     var query: Parameters? { get }
     var headers: Parameters? { get }
@@ -61,23 +61,23 @@ extension APIEndpoint {
 
 extension APIEndpoint {
     private var URLRequest: NSURLRequest {
-        let components = NSURLComponents(URL: URL, resolvingAgainstBaseURL: true)
-        components?.queryItems = query?.parameters.map(NSURLQueryItem.init)
-        let req = NSMutableURLRequest(URL: components?.URL ?? URL)
-        req.HTTPMethod = method.rawValue
+        let components = NSURLComponents(url: url, resolvingAgainstBaseURL: true)
+        components?.queryItems = query?.parameters.map(NSURLQueryItem.init) as [URLQueryItem]?
+        let req = NSMutableURLRequest(url: components?.url ?? url)
+        req.httpMethod = method.rawValue
         for case let (key, value?) in headers?.parameters ?? [:] {
             req.addValue(value, forHTTPHeaderField: key)
         }
         return req
     }
 
-    func request(session: NSURLSession, callback: (APIResult<ResponseType>) -> Void) -> NSURLSessionDataTask {
-        let task = session.dataTaskWithRequest(URLRequest) { (data, response, error) in
+    func request(session: URLSession, callback: @escaping (APIResult<ResponseType>) -> Void) -> URLSessionDataTask {
+        let task = session.dataTask(with: URLRequest as URLRequest) { (data, response, error) in
             if let e = error {
                 callback(.Failure(e))
             } else if let data = data {
                 do {
-                    guard let dic = try NSJSONSerialization.JSONObjectWithData(data, options: []) as? [String: AnyObject] else {
+                    guard let dic = try JSONSerialization.jsonObject(with: data, options: []) as? [String: AnyObject] else {
                         throw APIError.UnexpectedResponseType
                     }
                     let response = try ResponseType(JSON: JSONObject(JSON: dic))
@@ -96,10 +96,10 @@ extension APIEndpoint {
 
 enum APIResult<Response> {
     case Success(Response)
-    case Failure(ErrorType)
+    case Failure(Error)
 }
 
-struct Parameters: DictionaryLiteralConvertible {
+struct Parameters: ExpressibleByDictionaryLiteral {
     typealias Key = String
     typealias Value = String?
     private(set) var parameters: [Key: Value] = [:]
